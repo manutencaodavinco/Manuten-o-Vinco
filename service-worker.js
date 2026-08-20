@@ -1,4 +1,58 @@
-const C='vinco-pwa-v1',A=['./','./index.html','./manifest.json','./icon-192.png','./icon-512.png','./apple-touch-icon.png'];
-self.addEventListener('install',e=>{e.waitUntil(caches.open(C).then(c=>c.addAll(A)));self.skipWaiting()});
-self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(k=>Promise.all(k.filter(x=>x!==C).map(x=>caches.delete(x))))));
-self.addEventListener('fetch',e=>{if(e.request.method==='GET')e.respondWith(fetch(e.request).catch(()=>caches.match(e.request).then(r=>r||caches.match('./'))))});
+const CACHE_NAME = 'vinco-pwa-v2';
+
+const ASSETS = [
+  './',
+  './index.html',
+  './manifest.json',
+  './icon-192.png',
+  './icon-512.png',
+  './apple-touch-icon.png'
+];
+
+self.addEventListener('install', event => {
+  event.waitUntil(
+    caches.open(CACHE_NAME).then(cache => {
+      return cache.addAll(ASSETS);
+    })
+  );
+
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', event => {
+  event.waitUntil(
+    caches.keys().then(keys => {
+      return Promise.all(
+        keys
+          .filter(key => key !== CACHE_NAME)
+          .map(key => caches.delete(key))
+      );
+    })
+  );
+
+  self.clients.claim();
+});
+
+self.addEventListener('fetch', event => {
+  if (event.request.method !== 'GET') {
+    return;
+  }
+
+  event.respondWith(
+    fetch(event.request)
+      .then(response => {
+        const copia = response.clone();
+
+        caches.open(CACHE_NAME).then(cache => {
+          cache.put(event.request, copia);
+        });
+
+        return response;
+      })
+      .catch(() => {
+        return caches.match(event.request).then(response => {
+          return response || caches.match('./');
+        });
+      })
+  );
+});
